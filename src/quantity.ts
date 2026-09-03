@@ -1,5 +1,5 @@
 // @ts-ignore: used for registry side effects
-import type { DimensionSignature, CombineDimensionSignatures, DivideDimensionSignatures } from "./types/signature.ts";
+import type { DimensionSignature, CombineDimensionSignatures, DivideDimensionSignatures, ScaleDimensionSignature } from "./types/signature.ts";
 import { getUnitDefinition, getDimensionDefinition } from "./utils/registry.ts";
 
 // Using a unique symbol for branding to achieve nominal typing
@@ -57,6 +57,13 @@ export interface Quantity<DS extends DimensionSignature, Units extends string = 
   divide<OtherDS extends DimensionSignature, OtherUnits extends string>(
     other: Quantity<OtherDS, OtherUnits>
   ): Quantity<DivideDimensionSignatures<DS, OtherDS>, string>;
+
+  /**
+   * Raises this quantity to an integer power.
+   * @param exponent The integer exponent.
+   * @returns A new quantity with each dimension exponent scaled accordingly.
+   */
+  pow<Exponent extends number>(exponent: Exponent): Quantity<ScaleDimensionSignature<DS, Exponent>, string>;
 
   /**
    * Converts the quantity to a different unit of the same dimension.
@@ -284,6 +291,28 @@ export class Q<
     return Q.fromValueInBaseUnits(newValBase, newSig) as any;
   }
 
+  pow<Exponent extends number>(
+    exponent: Exponent
+  ): Q<string, ScaleDimensionSignature<DS, Exponent>, string> {
+    if (!Number.isInteger(exponent) || !Number.isFinite(exponent)) {
+      throw new Error("Exponent must be a finite integer");
+    }
+    if (exponent < 0 && this._valueInBaseUnits === 0) {
+      throw new Error("Division by zero");
+    }
+
+    const newSig: DimensionSignature = {};
+    for (const [dimensionName, power] of Object.entries(this._dimensionSignature)) {
+      const scaledPower = power * exponent;
+      if (scaledPower !== 0) newSig[dimensionName] = scaledPower;
+    }
+
+    return Q.fromValueInBaseUnits(
+      Math.pow(this._valueInBaseUnits, exponent),
+      newSig
+    ) as Q<string, ScaleDimensionSignature<DS, Exponent>, string>;
+  }
+
 
 
   convertTo<TargetUnit extends Units>(targetUnitSymbol: TargetUnit): Q<TargetUnit, DS, TargetUnit> {
@@ -314,7 +343,6 @@ export class Q<
     // Note: We use the generic 'string' for the unit symbol in the return type because 
     // we can't easily prove 'targetUnitSymbol' matches a specific literal type here without more complex generics.
     // The DS remains the same.
-    // deno-lint-ignore no-explicit-any
     return new Q(newVal, targetUnitSymbol);
   }
 

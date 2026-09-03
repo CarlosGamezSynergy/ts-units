@@ -12,10 +12,7 @@ export type ComplexDimensionExpression = () => string;
  * Registers a new dimension and its units.
  * @param definition The definition of the dimension.
  */
-export function defineDimension<
-  const Name extends string,
-  const Units extends UnitMap,
->(
+export function defineDimension<const Name extends string, const Units extends UnitMap,>(
   definition: DimensionDefinition<Name, Units>,
   options: DefineDimensionOptions = {},
 ): DefinedDimension<Name, Units> {

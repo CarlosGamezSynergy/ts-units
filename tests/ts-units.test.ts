@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertAlmostEquals, assertThrows } from "@std/assert";
 import { defineComplexDimension, defineDimension, getAllDimensions, getDimensionDefinition } from "../src/index.ts";
 
 const Length = defineDimension({
@@ -172,6 +172,12 @@ Deno.test("defineComplexDimension supports ^ operator", () => {
     assertEquals(Acceleration.quantity(1, "m/s^2").convertTo("cm/min^2").value, 360000);
 });
 
+Deno.test("defineComplexDimension can be defined using other complex dimensions", () => {
+    const AccelerationUsingSpeed = defineComplexDimension("AccelerationUsingSpeed", () => "Speed / Time");
+    assertAlmostEquals(AccelerationUsingSpeed.units["m/s/s"].factor, 1);
+    assertAlmostEquals(AccelerationUsingSpeed.units["cm/min/min"].factor, 0.01 / (60 * 60));
+});
+
 Deno.test("unit binary operations work correctly", () => {
     const quantity1 = Length.quantity(1, "m");
     const quantity2 = Length.quantity(100, "cm");
@@ -191,6 +197,65 @@ Deno.test("unit binary operations work correctly", () => {
     const quotient = quantity1.divide(quantity2);
     assertEquals(quotient.value, 1);
     assertEquals(quotient.unitSymbol, "dimensionless");
+});
+
+Deno.test("unit exponentiation works correctly", () => {
+    const quantity = Length.quantity(2, "m");
+
+    const square = quantity.pow(2);
+    assertEquals(square.value, 4);
+    assertEquals(square.unitSymbol, "m^2");
+
+    const inverse = quantity.pow(-1);
+    assertEquals(inverse.value, 0.5);
+    assertEquals(inverse.unitSymbol, "1/m");
+
+    const dimensionless = quantity.pow(0);
+    assertEquals(dimensionless.value, 1);
+    assertEquals(dimensionless.unitSymbol, "dimensionless");
+});
+
+Deno.test("unit exponentiation with large exponents works correctly", () => {
+    const quantity = Length.quantity(2, "m");
+
+    const largeExponent = quantity.pow(10);
+    assertEquals(largeExponent.value, 1024);
+    assertEquals(largeExponent.unitSymbol, "m^10");
+
+    const negativeLargeExponent = quantity.pow(-10);
+    assertEquals(negativeLargeExponent.value, 1 / 1024);
+    assertEquals(negativeLargeExponent.unitSymbol, "1/m^10");
+});
+
+// Deno.test("unit exponentiation on complex dimensions works correctly", () => {
+//     const Force = defineDimension({
+//         name: "Force",
+//         baseUnitSymbol: "kg*m/s^2",
+//         units: {
+//             "kg*m/s^2": { factor: 1 },
+//             "tonne*m/s^2": { factor: 1000 }
+//         }
+//     } as const);
+
+//     const quantity = Force.quantity(10, "kg*m/s^2");
+
+//     const squaredForce = quantity.pow(2);
+//     assertEquals(squaredForce.value, 100);
+//     assertEquals(squaredForce.unitSymbol, "(kg*m/s^2)^2");
+
+//     const cubedForce = quantity.pow(3);
+//     assertEquals(cubedForce.value, 1000);
+//     assertEquals(cubedForce.unitSymbol, "(kg*m/s^2)^3");
+// });
+
+Deno.test("unit exponentiation rejects invalid exponents", () => {
+    const quantity = Length.quantity(2, "m");
+
+    assertThrows(
+        () => quantity.pow(0.5),
+        Error,
+        "Exponent must be a finite integer"
+    );
 });
 
 Deno.test("unit comparison operations work correctly", () => {

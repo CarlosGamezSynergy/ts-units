@@ -2,7 +2,7 @@
 
 `ts-units` is a small TypeScript engine for unit conversion and dimensional arithmetic. It helps an application prevent accidental operations such as adding a distance to a duration, while still allowing the application to define the vocabulary it actually needs.
 
-The library deliberately has **no built-in units**. There is no implicit SI catalog and importing the package does not change global state. Your application registers dimensions and units, then receives typed quantity factories for that catalog. This makes custom domains, symbols, and conversion systems possible without pretending that every project uses the same units.
+The library deliberately has **no built-in units**. There is no implicit SI catalog and importing the package does not change global state. Your application registers dimensions and units, then receives typed quantity factories for that catalog. This makes custom domains, symbols, and conversion systems possible without assuming that every project uses the same units.
 
 ## Quick start
 
