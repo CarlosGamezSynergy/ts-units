@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { defineDimension, getAllDimensions } from "../src/index.ts";
+import { defineDimension } from "../src/index.ts";
 
 const Length = defineDimension({
     name: "Length",
@@ -174,5 +174,3 @@ Deno.test("unit binary operations work correctly", () => {
     assertEquals(quotient.value, 1);
     assertEquals(quotient.unitSymbol, "dimensionless");
 });
-
-console.log(getAllDimensions());
