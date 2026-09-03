@@ -13,7 +13,7 @@ represents a physical quantity with a magnitude and a dimension.
 **Signature:**
 
 ```typescript
-class Q<CurrentUnitSymbol extends string, DS extends DimensionSignature> implements Quantity<DS>
+class Q<CurrentUnitSymbol extends string, DS extends DimensionSignature, Units extends string = CurrentUnitSymbol> implements Quantity<DS, Units>
 ```
 
 **Constructor:**
@@ -27,10 +27,10 @@ new Q(value: number, unitSymbol: CurrentUnitSymbol)
 
 **Methods:**
 
-- **`add(other: Quantity<DS>): Q<CurrentUnitSymbol, DS>`** Adds another quantity
+- **`add(other: Quantity<DS, OtherUnits>): Q<CurrentUnitSymbol, DS, Units>`** Adds another quantity
   to this one. Throws details if dimensions do not match.
 
-- **`subtract(other: Quantity<DS>): Q<CurrentUnitSymbol, DS>`** Subtracts
+- **`subtract(other: Quantity<DS, OtherUnits>): Q<CurrentUnitSymbol, DS, Units>`** Subtracts
   another quantity from this one. Throws details if dimensions do not match.
 
 - **`multiply<OtherDS>(other: Quantity<OtherDS>): Q<string, CombineDimensionSignatures<DS, OtherDS>>`**
@@ -40,7 +40,7 @@ new Q(value: number, unitSymbol: CurrentUnitSymbol)
 - **`divide<OtherDS>(other: Quantity<OtherDS>): Q<string, DivideDimensionSignatures<DS, OtherDS>>`**
   Divides this quantity by another.
 
-- **`convertTo(targetUnitSymbol: AllowedUnit<DS>): Q<string, DS>`** Converts the
+- **`convertTo<TargetUnit extends Units>(targetUnitSymbol: TargetUnit): Quantity<DS, TargetUnit>`** Converts the
   quantity to a different unit of the same dimension.
 
 - **`equals(other: Quantity<DS>): boolean`** Checks if two quantities are equal
@@ -64,12 +64,43 @@ new Q(value: number, unitSymbol: CurrentUnitSymbol)
 The `Quantity` type defines the shape of a descriptor-aware quantity.
 
 ```typescript
-interface Quantity<DS extends DimensionSignature> {
+interface Quantity<DS extends DimensionSignature, Units extends string = string> {
   value: number;
   unitSymbol: string;
   // ... arithmetic and comparison methods
 }
 ```
+
+The second generic parameter is the set of registered symbols valid for the
+quantity. Built-in aliases provide their corresponding unit unions, while
+derived quantities use `string` because their composite symbols are generated
+at runtime.
+
+### Custom Dimensions
+
+`defineDimension` validates and registers a simple dimension, then returns a
+typed object with `quantity(value, unit)` and `factory(unit)` helpers.
+
+```typescript
+const Angle = defineDimension({
+  name: "Angle",
+  baseUnitSymbol: "rad",
+  units: { rad: { factor: 1 }, deg: { factor: Math.PI / 180 } },
+} as const);
+
+const angle = Angle.quantity(90, "deg");
+const radians = angle.convertTo("rad");
+```
+
+Definitions require a non-empty name and symbols, a finite positive factor
+for every unit, and a base unit with factor `1` and no offset. Duplicate
+dimensions and unit symbols are rejected. `defineDimension(definition,
+{ overwrite: true })` explicitly replaces an existing dimension and removes
+its old units first. Built-in dimension names are reserved.
+
+Unit offsets use `value * factor + offset` when converting to base units. This
+supports affine units such as temperatures, but arithmetic does not distinguish
+absolute quantities from differences.
 
 ## Factory Functions
 

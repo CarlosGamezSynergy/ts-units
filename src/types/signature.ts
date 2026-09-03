@@ -16,6 +16,10 @@ import type {
  */
 export type DimensionSignature = Record<string, number>;
 
+export type SimpleDimensionSignature<Name extends string> = {
+  [K in Name]: 1;
+};
+
 /**
  * Helper type to map a Dimension Signature to the corresponding Allowed Unit Types.
  * Used to restrict `convertTo` to valid unit symbols for a given dimension.

@@ -1,5 +1,5 @@
-import { defineDimension } from "../utils/registry.ts";
-import { DimensionDefinition } from "../types/dimension.ts";
+import { defineDimension, getDimensionDefinition } from "../utils/registry.ts";
+import type { DimensionDefinition } from "../types/dimension.ts";
 
 // --- Length ---
 export const LENGTH_CONFIG: DimensionDefinition<"Length"> = {
@@ -130,11 +130,14 @@ export type RegistryUnit =
     | LuminousIntensityUnit;
 
 export function registerStandardUnits() {
-    defineDimension(LENGTH_CONFIG);
-    defineDimension(MASS_CONFIG);
-    defineDimension(TIME_CONFIG);
-    defineDimension(ELECTRIC_CURRENT_CONFIG);
-    defineDimension(TEMPERATURE_CONFIG);
-    defineDimension(AMOUNT_OF_SUBSTANCE_CONFIG);
-    defineDimension(LUMINOUS_INTENSITY_CONFIG);
+    const definitions = [LENGTH_CONFIG, MASS_CONFIG, TIME_CONFIG,
+        ELECTRIC_CURRENT_CONFIG, TEMPERATURE_CONFIG,
+        AMOUNT_OF_SUBSTANCE_CONFIG, LUMINOUS_INTENSITY_CONFIG];
+    for (const definition of definitions) {
+        try {
+            getDimensionDefinition(definition.name);
+        } catch {
+            defineDimension(definition);
+        }
+    }
 }

@@ -21,12 +21,15 @@ defineDimension({
 const l1 = new Q(10, "m");
 const l2 = new Q(5, "km");
 
+const a = l1.multiply(l2); // Should be valid, resulting in a quantity with combined dimensions
+
 console.log("l1:", l1.toString());
 console.log("l2:", l2.toString());
 
+console.log(a)
+
 try {
-    // deno-lint-ignore no-explicit-any
-     new Q(10, "sec" as any); // Force error if we want to test runtime throw, or just let it throw if 'sec' not defined.
+     new Q(10, "sec"); // Force error if we want to test runtime throw, or just let it throw if 'sec' not defined.
 } catch (e) {
   console.log("Caught expected error:", (e as Error).message);
 }

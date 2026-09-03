@@ -149,6 +149,33 @@ console.log(dist.unitSymbol); // "m"
 console.log(dist.toJSON()); // { value: 10, unit: "m" }
 ```
 
+### 6. Custom Dimensions and Units
+
+Define a dimension to receive a typed factory for its declared unit symbols.
+
+```typescript
+import { defineDimension, m, s } from "ts-units";
+
+const Angle = defineDimension({
+  name: "Angle",
+  baseUnitSymbol: "rad",
+  units: {
+    rad: { factor: 1 },
+    deg: { factor: Math.PI / 180 },
+  },
+} as const);
+
+const angle = Angle.quantity(180, "deg");
+const radians = angle.convertTo("rad");
+const distancePerAngle = m(2).divide(angle);
+const anglePerSecond = angle.divide(s(2));
+```
+
+The compiler accepts only `rad` and `deg` for this dimension. Passing an
+undeclared symbol or converting to a unit from another dimension is a type
+error, and the registry performs the same checks at runtime. Dimension names
+and unit symbols must be unique; built-in dimension names are reserved.
+
 ## Supported Dimensions
 
 - Length (m, km, ft, mi, etc.)

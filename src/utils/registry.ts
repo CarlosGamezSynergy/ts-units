@@ -1,60 +1,79 @@
-import { DimensionDefinition, UnitDefinition } from "../types/dimension.ts";
+import { Q } from "../quantity.ts";
+import type { DefinedDimension, DimensionDefinition, UnitDefinition, UnitMap } from "../types/dimension.ts";
 
-// Global registry for all defined dimensions
 const DIMENSIONS_REGISTRY: Map<string, DimensionDefinition> = new Map();
-// Global registry for all unit definitions, mapping symbol to full definition
 const UNITS_REGISTRY: Map<string, UnitDefinition> = new Map();
+
+const RESERVED_DIMENSION_NAMES = new Set([
+  "Length", "Mass", "Time", "Temperature", "ElectricCurrent",
+  "AmountOfSubstance", "LuminousIntensity",
+]);
+
+export type DefineDimensionOptions = { overwrite?: boolean };
 
 /**
  * Registers a new dimension and its units.
  * @param definition The definition of the dimension.
  */
-export function defineDimension(definition: DimensionDefinition): void {
-  if (DIMENSIONS_REGISTRY.has(definition.name)) {
-    console.warn(
-      `Dimension "${definition.name}" is already defined. Overwriting.`
-    );
-  }
-
-  DIMENSIONS_REGISTRY.set(definition.name, definition);
-
-  // Register all units within this dimension
-  for (const unitSymbol in definition.units) {
-    if (UNITS_REGISTRY.has(unitSymbol)) {
-        // Warning if overwriting, but allow it (could be useful for re-definitions)
-        // Ideally we might want strictly unique symbols across all dimensions
-        console.warn(
-            `Unit symbol "${unitSymbol}" is already defined. Overwriting.`
-        );
+export function defineDimension<
+  const Name extends string,
+  const Units extends UnitMap,
+>(
+  definition: DimensionDefinition<Name, Units>,
+  options: DefineDimensionOptions = {},
+): DefinedDimension<Name, Units> {
+  validateDefinition(definition as unknown as DimensionDefinition, options.overwrite === true);
+  if (options.overwrite && DIMENSIONS_REGISTRY.has(definition.name)) {
+    for (const [symbol, unit] of UNITS_REGISTRY) {
+      if (unit.dimensionName === definition.name) UNITS_REGISTRY.delete(symbol);
     }
+  }
+  DIMENSIONS_REGISTRY.set(definition.name, definition as unknown as DimensionDefinition);
+  for (const [unitSymbol, unitSpec] of Object.entries(definition.units)) {
     UNITS_REGISTRY.set(unitSymbol, {
       symbol: unitSymbol,
-      factor: definition.units[unitSymbol].factor,
-      offset: definition.units[unitSymbol].offset ?? 0,
+      factor: unitSpec.factor,
+      offset: unitSpec.offset ?? 0,
       dimensionName: definition.name,
     });
   }
 
-  // Ensure the base unit is also registered as a unit with factor 1
-  if (!UNITS_REGISTRY.has(definition.baseUnitSymbol)) {
-    UNITS_REGISTRY.set(definition.baseUnitSymbol, {
-      symbol: definition.baseUnitSymbol,
-      factor: 1,
-      offset: 0,
-      dimensionName: definition.name,
-    });
-  } else {
-    // If base unit was already defined ensure its factor is 1
-    const baseUnitDef = UNITS_REGISTRY.get(definition.baseUnitSymbol)!;
-    if (baseUnitDef.factor !== 1 || baseUnitDef.offset !== 0) {
-      throw new Error(
-        `Base unit "${definition.baseUnitSymbol}" for dimension "${definition.name}" must have a conversion factor of 1 and offset of 0.`
-      );
+  const quantity = (value: number, unit: keyof Units & string) =>
+    new Q(value, unit) as Q<keyof Units & string, { [K in Name]: 1 }, keyof Units & string>;
+  return {
+    name: definition.name,
+    baseUnitSymbol: definition.baseUnitSymbol,
+    units: definition.units,
+    quantity,
+    factory: (unit: keyof Units & string) => (value: number) => quantity(value, unit),
+  };
+}
+
+function validateDefinition(definition: DimensionDefinition, overwrite: boolean): void {
+  if (!definition.name.trim()) throw new Error("Dimension name must be non-empty.");
+  const builtInBaseSymbols = new Set(["m", "kg", "s", "A", "K", "mol", "cd"]);
+  if (RESERVED_DIMENSION_NAMES.has(definition.name) &&
+      !DIMENSIONS_REGISTRY.has(definition.name) &&
+      !builtInBaseSymbols.has(definition.baseUnitSymbol)) {
+    throw new Error(`Dimension name "${definition.name}" is reserved.`);
+  }
+  if (!definition.baseUnitSymbol.trim()) throw new Error(`Base unit symbol for dimension "${definition.name}" must be non-empty.`);
+  if (!(definition.baseUnitSymbol in definition.units)) {
+    throw new Error(`Base unit "${definition.baseUnitSymbol}" is not declared for dimension "${definition.name}".`);
+  }
+  if (DIMENSIONS_REGISTRY.has(definition.name) && !overwrite) {
+    throw new Error(`Dimension "${definition.name}" is already defined.`);
+  }
+  for (const [symbol, unit] of Object.entries(definition.units)) {
+    if (!symbol.trim()) throw new Error(`Unit symbol for dimension "${definition.name}" must be non-empty.`);
+    if (!Number.isFinite(unit.factor)) throw new Error(`Unit "${symbol}" has a non-finite conversion factor.`);
+    if (unit.factor <= 0) throw new Error(`Unit "${symbol}" must have a positive conversion factor.`);
+    if (symbol === definition.baseUnitSymbol && (unit.factor !== 1 || (unit.offset ?? 0) !== 0)) {
+      throw new Error(`Base unit "${symbol}" for dimension "${definition.name}" must have a conversion factor of 1 and offset of 0.`);
     }
-    if (baseUnitDef.dimensionName !== definition.name) {
-      throw new Error(
-        `Base unit "${definition.baseUnitSymbol}" is registered to dimension "${baseUnitDef.dimensionName}" but defined as base for "${definition.name}".`
-      );
+    const existing = UNITS_REGISTRY.get(symbol);
+    if (existing && !(overwrite && existing.dimensionName === definition.name)) {
+      throw new Error(`Unit symbol "${symbol}" is already registered to dimension "${existing.dimensionName}".`);
     }
   }
 }

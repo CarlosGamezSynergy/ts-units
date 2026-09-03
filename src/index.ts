@@ -1,5 +1,14 @@
 import { registerStandardUnits } from "./units/index.ts";
 import { Q, type Quantity } from "./quantity.ts";
+export { defineDimension, getAllDimensions } from "./utils/registry.ts";
+export type {
+	DefinedDimension,
+	DimensionDefinition,
+	DimensionUnitSymbols,
+	UnitDefinition,
+	UnitMap,
+	UnitSpec,
+} from "./types/dimension.ts";
 
 /**
  * Registers all standard units (SI and common imperial/US customary) to the global registry.
@@ -14,19 +23,20 @@ export type { Quantity } from "./quantity.ts";
 // --- Dimension Types ---
 
 /** Represents a Length dimension (e.g., meters, feet). */
-export type Length = Quantity<{ Length: 1 }>;
+import type { LengthUnit, MassUnit, TimeUnit, ElectricCurrentUnit, TemperatureUnit, AmountOfSubstanceUnit, LuminousIntensityUnit } from "./units/index.ts";
+export type Length = Quantity<{ Length: 1 }, LengthUnit>;
 /** Represents a Mass dimension (e.g., kilograms, pounds). */
-export type Mass = Quantity<{ Mass: 1 }>;
+export type Mass = Quantity<{ Mass: 1 }, MassUnit>;
 /** Represents a Time dimension (e.g., seconds, hours). */
-export type Time = Quantity<{ Time: 1 }>;
+export type Time = Quantity<{ Time: 1 }, TimeUnit>;
 /** Represents an Electric Current dimension (e.g., amperes). */
-export type ElectricCurrent = Quantity<{ ElectricCurrent: 1 }>;
+export type ElectricCurrent = Quantity<{ ElectricCurrent: 1 }, ElectricCurrentUnit>;
 /** Represents a Temperature dimension (e.g., Kelvin, Celsius). */
-export type Temperature = Quantity<{ Temperature: 1 }>;
+export type Temperature = Quantity<{ Temperature: 1 }, TemperatureUnit>;
 /** Represents an Amount of Substance dimension (e.g., moles). */
-export type AmountOfSubstance = Quantity<{ AmountOfSubstance: 1 }>;
+export type AmountOfSubstance = Quantity<{ AmountOfSubstance: 1 }, AmountOfSubstanceUnit>;
 /** Represents a Luminous Intensity dimension (e.g., candela). */
-export type LuminousIntensity = Quantity<{ LuminousIntensity: 1 }>;
+export type LuminousIntensity = Quantity<{ LuminousIntensity: 1 }, LuminousIntensityUnit>;
 
 // --- Derived Types ---
 
