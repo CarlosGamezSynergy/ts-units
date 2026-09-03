@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { defineDimension } from "../src/index.ts";
+import { defineComplexDimension, defineDimension, getAllDimensions, getDimensionDefinition } from "../src/index.ts";
 
 const Length = defineDimension({
     name: "Length",
@@ -112,7 +112,7 @@ Deno.test("defineDimension throws error if base unit is not declared in units", 
     }
 });
 
-Deno.test("defineDimension can define compound dimensions", () => {
+Deno.test("defineComplexDimension generates units from registered dimensions", () => {
     const Time = defineDimension({
         name: "Time",
         baseUnitSymbol: "s",
@@ -124,22 +124,30 @@ Deno.test("defineDimension can define compound dimensions", () => {
         }
     } as const);
 
-    const Speed = defineDimension({
-        name: "Speed",
-        baseUnitSymbol: "m/s",
-        units: {
-            "m/s": { factor: 1 },
-            "km/h": { factor: 0.2777777778 }
-        }
-    } as const);
+    const Speed = defineComplexDimension("Speed", () => "Length / Time");
+
+    assertEquals(getDimensionDefinition("Speed").units, {
+        "m/s": { factor: 1 },
+        "m/ms": { factor: 1000 },
+        "m/min": { factor: 1 / 60 },
+        "m/h": { factor: 1 / 3600 },
+        "cm/s": { factor: 0.01 },
+        "cm/ms": { factor: 10 },
+        "cm/min": { factor: 0.01 / 60 },
+        "cm/h": { factor: 0.01 / 3600 },
+        "mm/s": { factor: 0.001 },
+        "mm/ms": { factor: 1 },
+        "mm/min": { factor: 0.001 / 60 },
+        "mm/h": { factor: 0.001 / 3600 },
+    });
 
     const quantityInMps = Speed.quantity(10, "m/s");
     assertEquals(quantityInMps.value, 10);
     assertEquals(quantityInMps.unitSymbol, "m/s");
 
-    const quantityInKmph = quantityInMps.convertTo("km/h");
-    assertEquals(Math.round(quantityInKmph.value), 36);
-    assertEquals(quantityInKmph.unitSymbol, "km/h");
+    const quantityInCmPerHour = quantityInMps.convertTo("cm/h");
+    assertEquals(quantityInCmPerHour.value, 10 / 0.01 * 3600);
+    assertEquals(quantityInCmPerHour.unitSymbol, "cm/h");
 
     const quantityInSeconds = Time.quantity(120, "s");
     assertEquals(quantityInSeconds.value, 120);
@@ -152,6 +160,16 @@ Deno.test("defineDimension can define compound dimensions", () => {
     const quantityInHours = quantityInSeconds.convertTo("h");
     assertEquals(quantityInHours.value, 0.03333333333333333);
     assertEquals(quantityInHours.unitSymbol, "h");
+});
+
+Deno.test("defineComplexDimension supports ^ operator", () => {
+    defineComplexDimension("Area", () => "Length ^ 2");
+    const LengthTime = defineComplexDimension("LengthTime", () => "Length * Time");
+    const Acceleration = defineComplexDimension("Acceleration", () => "Length / Time ^ 2");
+
+    assertEquals(getDimensionDefinition("Area").units["cm^2"].factor, 0.0001);
+    assertEquals(LengthTime.quantity(1, "m*min").convertTo("cm*s").value, 6000);
+    assertEquals(Acceleration.quantity(1, "m/s^2").convertTo("cm/min^2").value, 360000);
 });
 
 Deno.test("unit binary operations work correctly", () => {
@@ -173,4 +191,84 @@ Deno.test("unit binary operations work correctly", () => {
     const quotient = quantity1.divide(quantity2);
     assertEquals(quotient.value, 1);
     assertEquals(quotient.unitSymbol, "dimensionless");
+});
+
+Deno.test("unit comparison operations work correctly", () => {
+    const quantity1 = Length.quantity(1, "m");
+    const quantity2 = Length.quantity(100, "cm");
+
+    assertEquals(quantity1.equals(quantity2), true);
+    assertEquals(quantity1.isLessThan(quantity2), false);
+    assertEquals(quantity1.isGreaterThan(quantity2), false);
+
+    const quantity3 = Length.quantity(2, "m");
+    assertEquals(quantity1.equals(quantity3), false);
+    assertEquals(quantity1.isLessThan(quantity3), true);
+    assertEquals(quantity1.isGreaterThan(quantity3), false);
+});
+
+Deno.test("getAllDimensions returns all registered dimensions", () => {
+    const dimensions = getAllDimensions();
+    const dimensionNames = dimensions.map(d => d.name);
+    assertEquals(dimensionNames.includes("Length"), true);
+    assertEquals(dimensionNames.includes("Time"), true);
+    assertEquals(dimensionNames.includes("Speed"), true);
+    assertEquals(dimensionNames.includes("Area"), true);
+    assertEquals(dimensionNames.includes("LengthTime"), true);
+    assertEquals(dimensionNames.includes("Acceleration"), true);
+});
+
+Deno.test("getDimensionDefinition returns the correct dimension definition", () => {
+    const lengthDef = getDimensionDefinition("Length");
+    assertEquals(lengthDef.name, "Length");
+    assertEquals(lengthDef.baseUnitSymbol, "m");
+    assertEquals(lengthDef.units["cm"].factor, 0.01);
+
+    const timeDef = getDimensionDefinition("Time");
+    assertEquals(timeDef.name, "Time");
+    assertEquals(timeDef.baseUnitSymbol, "s");
+    assertEquals(timeDef.units["min"].factor, 60);
+});
+
+Deno.test("getDimensionDefinition throws error for non-existent dimension", () => {
+    try {
+        getDimensionDefinition("NonExistentDimension");
+    } catch (e) {
+        assertEquals((e as Error).message, 'Dimension "NonExistentDimension" is not defined.');
+    }
+});
+
+Deno.test("defineComplexDimension throws error for non-existent component dimension", () => {
+    try {
+        defineComplexDimension("InvalidComplexDimension", () => "Length * NonExistentDimension");
+    } catch (e) {
+        assertEquals((e as Error).message, 'Dimension "NonExistentDimension" is not defined.');
+    }
+});
+
+Deno.test("unit serialization and deserialization works correctly", () => {
+    const quantity = Length.quantity(1, "m");
+    const serialized = quantity.toJSON();
+    assertEquals(serialized, { value: 1, unit: "m" });
+
+    const deserializedQuantity = Length.quantity(serialized.value, serialized.unit as keyof typeof Length.units);
+    assertEquals(deserializedQuantity.value, 1);
+    assertEquals(deserializedQuantity.unitSymbol, "m");
+});
+
+Deno.test("defineComplexDimension throws error for non-zero offset units", () => {
+    defineDimension({
+        name: "Temperature",
+        baseUnitSymbol: "K",
+        units: {
+            "K": { factor: 1 },
+            "C": { factor: 1, offset: 273.15 }
+        }
+    } as const);
+
+    try {
+        defineComplexDimension("InvalidComplexDimension", () => "Length * Temperature");
+    } catch (e) {
+        assertEquals((e as Error).message, 'Cannot compose unit "C" with a non-zero offset.');
+    }
 });

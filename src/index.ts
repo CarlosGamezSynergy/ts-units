@@ -1,6 +1,7 @@
 export { Q } from "./quantity.ts";
 export type { Quantity } from "./quantity.ts";
 export {
+	defineComplexDimension,
 	defineDimension,
 	getAllDimensions,
 	getDimensionDefinition,
