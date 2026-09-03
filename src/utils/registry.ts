@@ -4,11 +4,6 @@ import type { DefinedDimension, DimensionDefinition, UnitDefinition, UnitMap } f
 const DIMENSIONS_REGISTRY: Map<string, DimensionDefinition> = new Map();
 const UNITS_REGISTRY: Map<string, UnitDefinition> = new Map();
 
-const RESERVED_DIMENSION_NAMES = new Set([
-  "Length", "Mass", "Time", "Temperature", "ElectricCurrent",
-  "AmountOfSubstance", "LuminousIntensity",
-]);
-
 export type DefineDimensionOptions = { overwrite?: boolean };
 
 /**
@@ -51,12 +46,11 @@ export function defineDimension<
 
 function validateDefinition(definition: DimensionDefinition, overwrite: boolean): void {
   if (!definition.name.trim()) throw new Error("Dimension name must be non-empty.");
-  const builtInBaseSymbols = new Set(["m", "kg", "s", "A", "K", "mol", "cd"]);
-  if (RESERVED_DIMENSION_NAMES.has(definition.name) &&
-      !DIMENSIONS_REGISTRY.has(definition.name) &&
-      !builtInBaseSymbols.has(definition.baseUnitSymbol)) {
-    throw new Error(`Dimension name "${definition.name}" is reserved.`);
+
+  if (DIMENSIONS_REGISTRY.has(definition.name) && !overwrite) {
+    throw new Error(`Dimension name "${definition.name}" is already defined and overwrite is not allowed.`);
   }
+
   if (!definition.baseUnitSymbol.trim()) throw new Error(`Base unit symbol for dimension "${definition.name}" must be non-empty.`);
   if (!(definition.baseUnitSymbol in definition.units)) {
     throw new Error(`Base unit "${definition.baseUnitSymbol}" is not declared for dimension "${definition.name}".`);
@@ -96,5 +90,5 @@ export function getDimensionDefinition(dimensionName: string): DimensionDefiniti
 
 // For accessing the registry deeply if needed (e.g. for listing all dimensions)
 export function getAllDimensions(): DimensionDefinition[] {
-    return Array.from(DIMENSIONS_REGISTRY.values());
+  return Array.from(DIMENSIONS_REGISTRY.values());
 }

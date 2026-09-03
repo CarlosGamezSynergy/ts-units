@@ -6,7 +6,7 @@
   "license": "AGPL",
   "tasks": {
     "dev": "deno run --watch ./src/index.ts",
-    "test": "deno test",
+    "test": "deno test --allow-run",
     "build_npm": "deno run -A scripts/build_npm.ts",
     "publish_npm": "deno task build_npm && npm publish ./npm --access public",
     "publish": "deno publish"

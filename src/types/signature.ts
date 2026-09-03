@@ -1,14 +1,4 @@
 
-import type { 
-  LengthUnit, 
-  MassUnit, 
-  TimeUnit,
-  ElectricCurrentUnit,
-  TemperatureUnit,
-  AmountOfSubstanceUnit,
-  LuminousIntensityUnit
-} from "../units/index.ts";
-
 /**
  * Represents a dimension signature where keys are dimension names (e.g., 'Length', 'Time')
  * and values are their exponents (e.g., 1, -1, 2).
@@ -24,15 +14,8 @@ export type SimpleDimensionSignature<Name extends string> = {
  * Helper type to map a Dimension Signature to the corresponding Allowed Unit Types.
  * Used to restrict `convertTo` to valid unit symbols for a given dimension.
  */
-export type AllowedUnit<DS extends DimensionSignature> =
-  DS extends { Length: 1 } ? LengthUnit :
-  DS extends { Mass: 1 } ? MassUnit :
-  DS extends { Time: 1 } ? TimeUnit :
-  DS extends { ElectricCurrent: 1 } ? ElectricCurrentUnit :
-  DS extends { Temperature: 1 } ? TemperatureUnit :
-  DS extends { AmountOfSubstance: 1 } ? AmountOfSubstanceUnit :
-  DS extends { LuminousIntensity: 1 } ? LuminousIntensityUnit :
-  never; // Fallback for unknown/composite dimensions -- checking failure
+/** @deprecated A signature does not determine the valid unit-symbol set. */
+export type AllowedUnit<DS extends DimensionSignature> = never;
 
 // --- Integer Arithmetic (Range: -10 to 10) ---
 
@@ -66,11 +49,21 @@ type AddSmall<A extends number, B extends number> =
   B extends 3 ? (AddSmall<A, 2> extends infer R extends number ? AddSmall<R, 1> : never) :
   B extends 4 ? (AddSmall<A, 2> extends infer R extends number ? AddSmall<R, 2> : never) :
   B extends 5 ? (AddSmall<A, 4> extends infer R extends number ? AddSmall<R, 1> : never) :
+  B extends 6 ? (AddSmall<A, 4> extends infer R extends number ? AddSmall<R, 1> : never) :
+  B extends 7 ? (AddSmall<A, 4> extends infer R extends number ? AddSmall<R, 1> : never) :
+  B extends 8 ? (AddSmall<A, 4> extends infer R extends number ? AddSmall<R, 1> : never) :
+  B extends 9 ? (AddSmall<A, 4> extends infer R extends number ? AddSmall<R, 1> : never) :
+  B extends 10 ? (AddSmall<A, 4> extends infer R extends number ? AddSmall<R, 1> : never) :
   B extends -1 ? (A extends keyof Prev ? Prev[A] : never) :
   B extends -2 ? (A extends keyof Prev ? AddSmall<Prev[A], -1> : never) :
   B extends -3 ? (AddSmall<A, -2> extends infer R extends number ? AddSmall<R, -1> : never) :
   B extends -4 ? (AddSmall<A, -2> extends infer R extends number ? AddSmall<R, -2> : never) :
   B extends -5 ? (AddSmall<A, -4> extends infer R extends number ? AddSmall<R, -1> : never) :
+  B extends -6 ? (AddSmall<A, -4> extends infer R extends number ? AddSmall<R, -1> : never) :
+  B extends -7 ? (AddSmall<A, -4> extends infer R extends number ? AddSmall<R, -1> : never) :
+  B extends -8 ? (AddSmall<A, -4> extends infer R extends number ? AddSmall<R, -1> : never) :
+  B extends -9 ? (AddSmall<A, -4> extends infer R extends number ? AddSmall<R, -1> : never) :
+  B extends -10 ? (AddSmall<A, -4> extends infer R extends number ? AddSmall<R, -1> : never) :
   // Fallback for larger numbers or deeper recursion if needed
   number;
 

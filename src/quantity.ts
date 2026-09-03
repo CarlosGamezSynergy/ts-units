@@ -5,8 +5,6 @@ import { getUnitDefinition, getDimensionDefinition } from "./utils/registry.ts";
 // Using a unique symbol for branding to achieve nominal typing
 const dimensionBrand = Symbol("dimensionBrand");
 
-
-
 // Base type for Quantity
 /**
  * Base interface for a Quantity, representing a scalar value with a specific dimension.
