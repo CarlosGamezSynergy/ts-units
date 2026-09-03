@@ -55,6 +55,7 @@ export function defineComplexDimension<const Name extends string>(
 ): DefinedDimension<Name, UnitMap> {
   const components = parseComplexExpression(expression());
   const dimensions = components.map(({ name: dimensionName }) => getDimensionDefinition(dimensionName));
+  console.log("Dimensions:", dimensions);
   const units: UnitMap = {};
 
   const addUnits = (index: number, symbolParts: string[], factor: number): void => {
@@ -99,9 +100,14 @@ type ComplexExpressionComponent = {
 
 function parseComplexExpression(expression: string): ComplexExpressionComponent[] {
   const tokens = expression.match(/[A-Za-z_$][\w$]*|\d+|[+\-*/^]/g) ?? [];
+
+  console.log("Parsing complex dimension expression:", expression);
+  console.log("Tokens:", tokens);
+  
   if (!expression.trim() || tokens.join("") !== expression.replace(/\s+/g, "")) {
     throw new Error(`Invalid complex dimension expression "${expression}".`);
   }
+
   if (tokens.length === 0) {
     throw new Error(`Invalid complex dimension expression "${expression}".`);
   }
@@ -131,6 +137,8 @@ function parseComplexExpression(expression: string): ComplexExpressionComponent[
     }
     operator = nextOperator;
   }
+
+  console.log("Parsed complex dimension expression:", components);
 
   return components;
 }
@@ -198,7 +206,6 @@ export function getDimensionDefinition(dimensionName: string): DimensionDefiniti
   return dimDef;
 }
 
-// For accessing the registry deeply if needed (e.g. for listing all dimensions)
 export function getAllDimensions(): DimensionDefinition[] {
   return Array.from(DIMENSIONS_REGISTRY.values());
 }
