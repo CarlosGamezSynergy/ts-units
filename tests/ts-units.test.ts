@@ -1,4 +1,4 @@
-import { assertEquals, assertAlmostEquals, assertThrows } from "@std/assert";
+import { assertAlmostEquals, assertEquals, assertThrows } from "@std/assert";
 import { defineComplexDimension, defineDimension, getAllDimensions, getDimensionDefinition } from "../src/index.ts";
 
 const Length = defineDimension({
@@ -10,8 +10,10 @@ const Length = defineDimension({
     }
 } as const);
 
+const m = Length.factory("m");
+
 Deno.test("defineDimension registers new dimension and units correctly", () => {
-    const quantity = Length.quantity(1, "m");
+    const quantity = m(1);
     assertEquals(quantity.value, 1);
     assertEquals(quantity.unitSymbol, "m");
 });

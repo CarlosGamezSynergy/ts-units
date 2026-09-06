@@ -1,7 +1,11 @@
-import { defineComplexDimension, defineDimension } from "./src/index.ts";
+import { DimensionCalculator } from "./src/parser/dimension-calculator.ts";
+import Parser from "./src/parser/parser.ts";
+import { extractIdentifiers } from "./src/parser/reducer.ts";
+import { DimensionDefinition } from "./src/types/dimension.ts";
+import { defineComplexDimension, defineDimension, getDimensionDefinition } from "./src/utils/registry.ts";
 
-
-const Length = defineDimension({
+// PREREQUISITES: DEFINE BASE DIMENSIONS
+defineDimension({
     name: "Length",
     baseUnitSymbol: "m",
     units: {
@@ -16,7 +20,7 @@ const Length = defineDimension({
     }
 });
 
-const Time = defineDimension({
+defineDimension({
     name: "Time",
     baseUnitSymbol: "s",
     units: {
@@ -27,7 +31,7 @@ const Time = defineDimension({
     }
 });
 
-const Mass = defineDimension({
+defineDimension({
     name: "Mass",
     baseUnitSymbol: "kg",
     units: {
@@ -39,9 +43,55 @@ const Mass = defineDimension({
     }
 });
 
-const Speed = defineComplexDimension("Speed", () => "Length / Time")
+console.log("========= COMPLEX DIMENSION PARSER & INTERPRETER =========");
+const dimensionExpressionString = "(Mass * Length / Time) ^ 2";
+console.log(`Dimension Expression: ${dimensionExpressionString}`);
 
-console.log(Length);
-console.log(Time);
-console.log(Mass);
-console.log(Speed);
+// PARSING
+console.log("\n========= PARSING =========");
+const parser = new Parser();
+const dimensionExpression = parser.parseDimensionExpression(dimensionExpressionString);
+console.dir(dimensionExpression, { depth: null, colors: true });
+
+// COMBINE BASE DIMENSIONS INTO A COMPLEX DIMENSION
+console.log("\n========= COMPLEX DIMENSION DEFINITION =========");
+
+// Use the parsed expression to define all possible combinations of units for the complex dimension
+
+const dimensionsInExpression = extractIdentifiers(dimensionExpression);
+console.log(`Dimensions in Expression: ${Array.from(dimensionsInExpression).join(", ")}`);
+
+const dimensionsCalculatorContext: Record<string, DimensionDefinition> = {};
+for (const dimensionName of dimensionsInExpression) {
+    const dimensionDef = getDimensionDefinition(dimensionName);
+    if (!dimensionDef) {
+        throw new Error(`Dimension "${dimensionName}" is not defined.`);
+    }
+    dimensionsCalculatorContext[dimensionName] = dimensionDef;
+}
+console.log("Dimensions Calculator Context:");
+console.dir(dimensionsCalculatorContext, { depth: null, colors: true });
+
+const dimensionCalculator = new DimensionCalculator(dimensionsCalculatorContext);
+const unitCombinations = dimensionCalculator.calculateUnitCombinations(dimensionExpression);
+console.dir(unitCombinations, { depth: null, colors: true });
+
+const complexUnitSpec = dimensionCalculator.buildComplexUnitSpec(unitCombinations, dimensionExpression);
+console.log("Complex Unit Specification:");
+console.dir(complexUnitSpec, { depth: null, colors: true });
+
+console.log("\n========= COMPLEX DIMENSION DEFINITION =========");
+const baseUnitSymbol = dimensionCalculator.findFirstUnitSpecWithFactorEqualToOne(Object.entries(complexUnitSpec))?.[0] ?? Object.keys(complexUnitSpec)[0];
+const complexDimension = defineDimension({ name: "ComplexDimension", baseUnitSymbol, units: complexUnitSpec }, { overwrite: true });
+console.dir(complexDimension, { depth: null, colors: true });
+
+// // EVALUATION
+// console.log("\n========= EVALUATION =========");
+// const context: Context = {
+//     Mass: 10,
+//     Length: 5,
+//     Time: 2,
+// };
+// const interpreter = new Interpreter(context);
+// const result = interpreter.evaluate(parsedExpression);
+// console.dir(result, { depth: null, colors: true });

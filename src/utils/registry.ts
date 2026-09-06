@@ -1,3 +1,6 @@
+import { DimensionCalculator } from "../parser/dimension-calculator.ts";
+import Parser from "../parser/parser.ts";
+import { extractIdentifiers } from "../parser/reducer.ts";
 import { Q } from "../quantity.ts";
 import type { DefinedDimension, DimensionDefinition, UnitDefinition, UnitMap } from "../types/dimension.ts";
 
@@ -53,113 +56,36 @@ export function defineComplexDimension<const Name extends string>(
   expression: ComplexDimensionExpression,
   options: DefineDimensionOptions = {},
 ): DefinedDimension<Name, UnitMap> {
-  const components = parseComplexExpression(expression());
-  const dimensions = components.map(({ name: dimensionName }) => getDimensionDefinition(dimensionName));
-  console.log("Dimensions:", dimensions);
-  const units: UnitMap = {};
+  //========= COMPLEX DIMENSION PARSER & INTERPRETER =========
 
-  const addUnits = (index: number, symbolParts: string[], factor: number): void => {
-    if (index === dimensions.length) {
-      units[formatComplexUnitSymbol(symbolParts, components)] = { factor };
-      return;
+  const dimensionExpressionString = expression();
+
+  // PARSING
+  const parser = new Parser();
+  const dimensionExpression = parser.parseDimensionExpression(dimensionExpressionString);
+
+  // COMBINE BASE DIMENSIONS INTO A COMPLEX DIMENSION
+  // Use the parsed expression to define all possible combinations of units for the complex dimension
+  const dimensionsInExpression = extractIdentifiers(dimensionExpression);
+  const dimensionsCalculatorContext: Record<string, DimensionDefinition> = {};
+  for (const dimensionName of dimensionsInExpression) {
+    const dimensionDef = getDimensionDefinition(dimensionName);
+    if (!dimensionDef) {
+      throw new Error(`Dimension "${dimensionName}" is not defined.`);
     }
-
-    const component = components[index];
-    for (const [symbol, unit] of Object.entries(dimensions[index].units)) {
-      if ((unit.offset ?? 0) !== 0) {
-        throw new Error(`Cannot compose unit "${symbol}" with a non-zero offset.`);
-      }
-      addUnits(
-        index + 1,
-        [...symbolParts, unitSymbolWithExponent(symbol, component.exponent)],
-        isNumerator(component)
-          ? factor * unit.factor ** component.exponent
-          : factor / unit.factor ** component.exponent,
-      );
-    }
-  };
-
-  addUnits(0, [], 1);
-
-  const baseUnitSymbol = formatComplexUnitSymbol(
-    components.map((component) => unitSymbolWithExponent(
-      getDimensionDefinition(component.name).baseUnitSymbol,
-      component.exponent,
-    )),
-    components,
-  );
-
-  return defineDimension({ name, baseUnitSymbol, units }, options);
-}
-
-type ComplexExpressionComponent = {
-  name: string;
-  operator: "*" | "/";
-  exponent: number;
-};
-
-function parseComplexExpression(expression: string): ComplexExpressionComponent[] {
-  const tokens = expression.match(/[A-Za-z_$][\w$]*|\d+|[+\-*/^]/g) ?? [];
-
-  console.log("Parsing complex dimension expression:", expression);
-  console.log("Tokens:", tokens);
-  
-  if (!expression.trim() || tokens.join("") !== expression.replace(/\s+/g, "")) {
-    throw new Error(`Invalid complex dimension expression "${expression}".`);
+    dimensionsCalculatorContext[dimensionName] = dimensionDef;
   }
 
-  if (tokens.length === 0) {
-    throw new Error(`Invalid complex dimension expression "${expression}".`);
-  }
+  const dimensionCalculator = new DimensionCalculator(dimensionsCalculatorContext);
+  const unitCombinations = dimensionCalculator.calculateUnitCombinations(dimensionExpression);
 
-  const components: ComplexExpressionComponent[] = [];
-  let index = 0;
-  let operator: ComplexExpressionComponent["operator"] = "*";
-  while (index < tokens.length) {
-    const name = tokens[index++];
-    if (!name || !/^[A-Za-z_$]/.test(name)) {
-      throw new Error(`Invalid complex dimension expression "${expression}".`);
-    }
-    let exponent = 1;
-    if (tokens[index] === "^") {
-      const exponentToken = tokens[index + 1];
-      exponent = Number(exponentToken);
-      if (!Number.isSafeInteger(exponent) || exponent < 1) {
-        throw new Error(`Complex dimension exponents must be positive integers.`);
-      }
-      index += 2;
-    }
-    components.push({ name, operator, exponent });
-    if (index === tokens.length) break;
-    const nextOperator = tokens[index++];
-    if (nextOperator !== "*" && nextOperator !== "/") {
-      throw new Error(`Invalid complex dimension expression "${expression}".`);
-    }
-    operator = nextOperator;
-  }
+  const units = dimensionCalculator.buildComplexUnitSpec(unitCombinations, dimensionExpression);
 
-  console.log("Parsed complex dimension expression:", components);
+  //========= COMPLEX DIMENSION DEFINITION =========
+  const baseUnitSymbol = dimensionCalculator.findFirstUnitSpecWithFactorEqualToOne(Object.entries(units))?.[0] ?? Object.keys(units)[0];
+  const complexDimension = defineDimension({ name, baseUnitSymbol, units }, options);
 
-  return components;
-}
-
-function isNumerator(component: ComplexExpressionComponent): boolean {
-  return component.operator === "*";
-}
-
-function unitSymbolWithExponent(symbol: string, exponent: number): string {
-  return exponent === 1 ? symbol : `${symbol}^${exponent}`;
-}
-
-function formatComplexUnitSymbol(
-  symbolParts: string[],
-  components: ComplexExpressionComponent[],
-): string {
-  const numerator = symbolParts.filter((_, index) => isNumerator(components[index]));
-  const denominator = symbolParts.filter((_, index) => !isNumerator(components[index]));
-  return denominator.length === 0
-    ? numerator.join("*")
-    : `${numerator.join("*") || "1"}/${denominator.join("*")}`;
+  return complexDimension;
 }
 
 function validateDefinition(definition: DimensionDefinition, overwrite: boolean): void {

@@ -145,4 +145,28 @@ export function reduceDimensionExpression(expression: DimensionExpression): Dime
 	};
 }
 
-export default reduceDimensionExpression;
+export function extractIdentifiers(expression: DimensionExpression): Set<string> {
+	const identifiers = new Set<string>();
+
+	function collectIdentifiers(expr: Expression) {
+		switch (expr.kind) {
+			case "Identifier":
+				identifiers.add((expr as IdentifierExpression).symbol);
+				break;
+			case "BinaryExpression":
+				collectIdentifiers((expr as BinaryExpression).left);
+				collectIdentifiers((expr as BinaryExpression).right);
+				break;
+			case "NumericLiteral":
+				break;
+			default:
+				throw new Error(`Unsupported expression kind: ${expr.kind}`);
+		}
+	}
+
+	for (const statement of expression.body) {
+		collectIdentifiers(statement as Expression);
+	}
+
+	return identifiers;
+}

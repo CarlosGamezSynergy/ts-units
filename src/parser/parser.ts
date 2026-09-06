@@ -1,10 +1,13 @@
-import type {
-    BinaryExpression,
-    DimensionExpression,
-    Expression,
-    IdentifierExpression,
-    NumericLiteral,
-    Statement
+import {
+isBinaryExpression,
+    isDimensionExpression,
+    isIdentifierExpression,
+    type BinaryExpression,
+    type DimensionExpression,
+    type Expression,
+    type IdentifierExpression,
+    type NumericLiteral,
+    type Statement
 } from "./ast.ts";
 import { tokenise, type Token } from "./lexer.ts";
 
@@ -177,5 +180,47 @@ export default class Parser {
             default:
                 throw new Error(`Unexpected token type: ${tk.type} at line ${tk.line}, column ${tk.column}`);
         }
+    }
+
+    static replaceIdentifier(expression: IdentifierExpression, fromToIdentifier: [from: string, to: string]): IdentifierExpression {
+        if (expression.symbol === fromToIdentifier[0]) {
+            return {
+                kind: "Identifier",
+                symbol: fromToIdentifier[1]
+            }
+        }
+        return expression;
+    }
+
+    static replaceIdentifiersWithDimensions(statement: Statement, fromToIdentifiers: [from: string, to: string][]) {
+        if (isDimensionExpression(statement)) {
+            const newBody: Statement[] = [];
+            newBody.push(...statement.body.map(stmt => this.replaceIdentifiersWithDimensions(stmt, fromToIdentifiers)));
+            return {
+                kind: "DimensionExpression",
+                body: newBody
+            } as DimensionExpression;
+        } else if (isBinaryExpression(statement)) {
+            const newLeft = this.replaceIdentifiersWithDimensions(statement.left, fromToIdentifiers) as Expression;
+            const newRight = this.replaceIdentifiersWithDimensions(statement.right, fromToIdentifiers) as Expression;
+            
+            return {
+                kind: "BinaryExpression",
+                operator: statement.operator,
+                left: newLeft as Expression,
+                right: newRight as Expression
+            } as BinaryExpression;
+        } else if (isIdentifierExpression(statement)) {
+            const identifierIndex = fromToIdentifiers.findIndex(([from, to]) => statement.symbol === from);
+            
+            if (identifierIndex !== -1) {
+                const [from, to] = fromToIdentifiers[identifierIndex];
+                return this.replaceIdentifier(statement, [from, to]);
+            }
+
+            return statement;
+        }
+
+        return statement;
     }
 }

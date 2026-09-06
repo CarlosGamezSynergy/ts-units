@@ -1,7 +1,6 @@
 import { assertEquals } from "@std/assert";
-import type { BinaryExpression, IdentifierExpression, NumericLiteral } from "./ast.ts";
+import type { BinaryExpression, DimensionExpression, IdentifierExpression, NumericLiteral } from "./ast.ts";
 import Parser from "./parser.ts";
-
 
 Deno.test("should parse an empty DimensionExpression", () => {
     const sourceCode = '';
@@ -317,4 +316,19 @@ Deno.test("should parse a complex expression with identifiers, literals, and mix
             } as BinaryExpression
         ]
     });
+});
+
+Deno.test("replaceIdentifiersWithDimensions correctly replaces identifiers with dimensions in a dimension expression", () => {
+    const parser = new Parser();
+    const expression: DimensionExpression = parser.parseDimensionExpression("(Height ^ 4 * Time) * (Length * Width ^ 2 / Height * Length ^ 2)");
+    const fromToIdentifiers: [from: string, to: string][] = [
+        ["Height", "H"],
+        ["Length", "L"],
+        ["Time", "T"],
+        ["Width", "W"]
+    ];
+    const replacedExpression = Parser.replaceIdentifiersWithDimensions(expression, fromToIdentifiers);
+    const expectedExpression: DimensionExpression = parser.parseDimensionExpression("(H ^ 4 * T) * (L * W ^ 2 / H * L ^ 2)");
+
+    assertEquals((replacedExpression as DimensionExpression).body, expectedExpression.body);
 });
