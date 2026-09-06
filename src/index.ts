@@ -17,3 +17,5 @@ export type {
 } from "./types/dimension.ts";
 export * from "./types/signature.ts";
 
+// Trigger definition of base units
+export * from "./predefined/index.ts";

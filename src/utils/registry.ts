@@ -6,9 +6,7 @@ import type { DefinedDimension, DimensionDefinition, UnitDefinition, UnitMap } f
 
 const DIMENSIONS_REGISTRY: Map<string, DimensionDefinition> = new Map();
 const UNITS_REGISTRY: Map<string, UnitDefinition> = new Map();
-
 export type DefineDimensionOptions = { overwrite?: boolean };
-
 export type ComplexDimensionExpression = () => string;
 
 /**
@@ -20,12 +18,15 @@ export function defineDimension<const Name extends string, const Units extends U
   options: DefineDimensionOptions = {},
 ): DefinedDimension<Name, Units> {
   validateDefinition(definition as unknown as DimensionDefinition, options.overwrite === true);
+  
   if (options.overwrite && DIMENSIONS_REGISTRY.has(definition.name)) {
     for (const [symbol, unit] of UNITS_REGISTRY) {
       if (unit.dimensionName === definition.name) UNITS_REGISTRY.delete(symbol);
     }
   }
+  
   DIMENSIONS_REGISTRY.set(definition.name, definition as unknown as DimensionDefinition);
+  
   for (const [unitSymbol, unitSpec] of Object.entries(definition.units)) {
     UNITS_REGISTRY.set(unitSymbol, {
       symbol: unitSymbol,
@@ -37,6 +38,7 @@ export function defineDimension<const Name extends string, const Units extends U
 
   const quantity = (value: number, unit: keyof Units & string) =>
     new Q(value, unit) as Q<keyof Units & string, { [K in Name]: 1 }, keyof Units & string>;
+
   return {
     name: definition.name,
     baseUnitSymbol: definition.baseUnitSymbol,
