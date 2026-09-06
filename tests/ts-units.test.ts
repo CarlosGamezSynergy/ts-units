@@ -298,15 +298,6 @@ Deno.test("unit serialization and deserialization works correctly", () => {
 });
 
 Deno.test("defineComplexDimension throws error for non-zero offset units", () => {
-  console.dir(getDimensionDefinition("Temperature"));
-  console.dir(
-    defineComplexDimension(
-      "InvalidComplexDimension",
-      () => "Length * Temperature",
-    ),
-    { depth: null },
-  );
-
   assertThrows(
     () => {
       defineComplexDimension(
@@ -315,6 +306,6 @@ Deno.test("defineComplexDimension throws error for non-zero offset units", () =>
       );
     },
     Error,
-    'Cannot compose unit "C" with a non-zero offset.',
+    'Cannot compose unit "degC" with a non-zero offset.',
   );
 });

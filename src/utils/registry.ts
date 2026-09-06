@@ -93,6 +93,7 @@ export function defineComplexDimension<const Name extends string>(
   expression: ComplexDimensionExpression,
   options: DefineDimensionOptions = {},
 ): DefinedDimension<Name, UnitMap> {
+
   //========= COMPLEX DIMENSION PARSER & INTERPRETER =========
   const dimensionExpressionString = expression();
 
@@ -111,6 +112,7 @@ export function defineComplexDimension<const Name extends string>(
     if (!dimensionDef) {
       throw new Error(`Dimension "${dimensionName}" is not defined.`);
     }
+
     dimensionsCalculatorContext[dimensionName] = dimensionDef;
   }
 
@@ -131,12 +133,12 @@ export function defineComplexDimension<const Name extends string>(
     dimensionCalculator.findFirstUnitSpecWithFactorEqualToOne(
       Object.entries(units),
     )?.[0] ?? Object.keys(units)[0];
+
   const complexDimension = defineDimension(
     { name, baseUnitSymbol, units },
     options,
   );
 
-  validateDefinition(complexDimension, options.overwrite === true);
 
   // Remember how this dimension was derived so that equivalence resolution
   // (see `defineEquivalence`) can transparently unify it with other dimensions

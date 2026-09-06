@@ -28,6 +28,14 @@ export class DimensionCalculator {
             return dimension;
         });
 
+        dimensions.forEach((dim) => {
+            for (const unit of Object.entries(dim.units)) {
+                if(unit[1].offset !== undefined && unit[1].offset !== 0) {
+                    throw new Error(`"Cannot compose unit "${unit[0]}" with a non-zero offset."`);
+                }
+            }
+        });
+
         const units = dimensions.map((dim) => Object.entries(dim.units));
 
         return cartesianProduct(units);

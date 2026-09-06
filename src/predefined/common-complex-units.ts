@@ -7,7 +7,7 @@
 
 import { defineComplexDimension, defineDimension, defineEquivalence } from "../utils/registry.ts";
 
-// ==== GEOMETRY ====
+// // ==== GEOMETRY ====
 
 export const Area = defineComplexDimension("Area", () => "Length ^ 2");
 
