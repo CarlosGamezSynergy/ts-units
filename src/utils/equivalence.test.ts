@@ -17,7 +17,7 @@ Deno.test("defineEquivalence allows a base dimension's quantity to be added to a
     // Same canonical dimension, so addition should succeed and combine values in base units.
     const sum = forceQty.add(derivedQty as unknown as Parameters<typeof forceQty.add>[0]);
     assertAlmostEquals(sum.value, 5);
-    assertEquals(forceQty.equals(derivedQty as unknown as Parameters<typeof forceQty.equals>[0]), false); // different magnitude
+    assertEquals(forceQty.equals(derivedQty), false); // different magnitude
 });
 
 Deno.test("defineEquivalence makes equals/compare treat equivalent dimensions as equal", () => {
@@ -32,7 +32,7 @@ Deno.test("defineEquivalence makes equals/compare treat equivalent dimensions as
     const derivedDimension = defineComplexDimension("EqForce2Expr", () => "EqMass2 * EqLength2 / EqTime2 ^ 2");
     const derivedQty = derivedDimension.quantity(4, derivedDimension.baseUnitSymbol);
 
-    assertEquals(forceQty.equals(derivedQty as unknown as Parameters<typeof forceQty.equals>[0]), true);
+    assertEquals(forceQty.equals(derivedQty), true);
 });
 
 Deno.test("defineEquivalence throws when referencing an undefined dimension", () => {
@@ -79,7 +79,7 @@ Deno.test("defineComplexDimension auto-registered equivalences unify transitivel
     const pressureFromExpansion = PressureZExpanded.quantity(1, PressureZExpanded.baseUnitSymbol);
 
     assertEquals(
-        pressureFromForce.equals(pressureFromExpansion as unknown as Parameters<typeof pressureFromForce.equals>[0]),
+        pressureFromForce.equals(pressureFromExpansion),
         true,
     );
 

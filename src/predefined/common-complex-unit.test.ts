@@ -99,5 +99,5 @@ Deno.test("ElectricPotential units are equivalent to their base unit constructio
 
     const voltsFromDefinition = tsu.V(1);
 
-    assertEquals(voltsFromBaseUnits.equals(voltsFromDefinition as unknown as Parameters<typeof voltsFromBaseUnits.equals>[0]), true);
+    assertEquals(voltsFromBaseUnits.equals(voltsFromDefinition), true);
 });

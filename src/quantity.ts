@@ -75,12 +75,25 @@ export interface Quantity<DS extends DimensionSignature, Units extends string = 
   convertTo<TargetUnit extends Units>(targetUnitSymbol: TargetUnit): Quantity<DS, TargetUnit>;
 
   // Comparisons
-  /** Checks if this quantity is equal to another (within a small tolerance). */
-  equals(other: Quantity<DS, string>): boolean;
-  /** Checks if this quantity is strictly less than another. */
-  isLessThan(other: Quantity<DS, string>): boolean;
-  /** Checks if this quantity is strictly greater than another. */
-  isGreaterThan(other: Quantity<DS, string>): boolean;
+  /**
+   * Checks if this quantity is equal to another (within a small tolerance).
+   * Accepts a quantity of any dimension signature; if the other dimension is
+   * not equivalent to this one (see `defineEquivalence`), this returns `false`
+   * (see `isLessThan`/`isGreaterThan` for the throwing variants).
+   */
+  equals(other: Quantity<DimensionSignature, string>): boolean;
+  /**
+   * Checks if this quantity is strictly less than another.
+   * Accepts a quantity of any dimension signature, but throws at runtime if
+   * the other dimension is not equivalent to this one (see `defineEquivalence`).
+   */
+  isLessThan(other: Quantity<DimensionSignature, string>): boolean;
+  /**
+   * Checks if this quantity is strictly greater than another.
+   * Accepts a quantity of any dimension signature, but throws at runtime if
+   * the other dimension is not equivalent to this one (see `defineEquivalence`).
+   */
+  isGreaterThan(other: Quantity<DimensionSignature, string>): boolean;
 
   // Interop
   valueOf(): number;
@@ -355,19 +368,19 @@ export class Q<
       return { value: this.value, unit: this.unitSymbol };
   }
 
-  equals(other: Quantity<DS, string>): boolean {
+  equals(other: Quantity<DimensionSignature, string>): boolean {
        if (!Q.areDimensionSignaturesEqual(this._dimensionSignature, other._dimensionSignature)) return false;
        // deno-lint-ignore no-explicit-any
        return Math.abs(this._valueInBaseUnits - (other as any)._valueInBaseUnits) < 1e-9;
   }
 
-  isLessThan(other: Quantity<DS, string>): boolean {
+  isLessThan(other: Quantity<DimensionSignature, string>): boolean {
     if (!Q.areDimensionSignaturesEqual(this._dimensionSignature, other._dimensionSignature)) throw new Error("Dimension mismatch");
     // deno-lint-ignore no-explicit-any
     return this._valueInBaseUnits < (other as any)._valueInBaseUnits;
   }
 
-  isGreaterThan(other: Quantity<DS, string>): boolean {
+  isGreaterThan(other: Quantity<DimensionSignature, string>): boolean {
     if (!Q.areDimensionSignaturesEqual(this._dimensionSignature, other._dimensionSignature)) throw new Error("Dimension mismatch");
     // deno-lint-ignore no-explicit-any
     return this._valueInBaseUnits > (other as any)._valueInBaseUnits;
