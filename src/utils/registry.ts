@@ -1,33 +1,76 @@
 import { DimensionCalculator } from "../parser/dimension-calculator.ts";
 import Parser from "../parser/parser.ts";
-import { dimensionExpressionToSignature, extractIdentifiers } from "../parser/reducer.ts";
+import {
+  dimensionExpressionToSignature,
+  extractIdentifiers,
+} from "../parser/reducer.ts";
 import { Q } from "../quantity.ts";
-import type { DefinedDimension, DimensionDefinition, UnitDefinition, UnitMap } from "../types/dimension.ts";
-import { canonicalizeSignature, areSignaturesEquivalent, getRawEquivalence, registerEquivalence } from "./equivalence.ts";
+import type {
+  DefinedDimension,
+  DimensionDefinition,
+  UnitDefinition,
+  UnitMap,
+} from "../types/dimension.ts";
+import type { SimpleDimensionSignature } from "../types/signature.ts";
+import {
+  areSignaturesEquivalent,
+  canonicalizeSignature,
+  getRawEquivalence,
+  registerEquivalence,
+} from "./equivalence.ts";
 
 const DIMENSIONS_REGISTRY: Map<string, DimensionDefinition> = new Map();
 const UNITS_REGISTRY: Map<string, UnitDefinition> = new Map();
 export type DefineDimensionOptions = { overwrite?: boolean };
 export type ComplexDimensionExpression = () => string;
 
+export function addQuantityAndFactoryToDefinition<
+  const Name extends string,
+  const Units extends UnitMap,
+>(
+  definition: DimensionDefinition<Name, Units>,
+): DefinedDimension<Name, Units> {
+  type Unit = keyof Units & string;
+
+  const quantity = (value: number, unit: Unit) =>
+    new Q<Unit, SimpleDimensionSignature<Name>, Unit>(value, unit);
+
+  const factory = (unit: Unit) => (value: number) => quantity(value, unit);
+
+  return {
+    ...definition,
+    quantity,
+    factory,
+  };
+}
+
 /**
  * Registers a new dimension and its units.
  * @param definition The definition of the dimension.
  */
-export function defineDimension<const Name extends string, const Units extends UnitMap,>(
+export function defineDimension<
+  const Name extends string,
+  const Units extends UnitMap,
+>(
   definition: DimensionDefinition<Name, Units>,
   options: DefineDimensionOptions = {},
 ): DefinedDimension<Name, Units> {
-  validateDefinition(definition as unknown as DimensionDefinition, options.overwrite === true);
-  
+  validateDefinition(
+    definition as unknown as DimensionDefinition,
+    options.overwrite === true,
+  );
+
   if (options.overwrite && DIMENSIONS_REGISTRY.has(definition.name)) {
     for (const [symbol, unit] of UNITS_REGISTRY) {
       if (unit.dimensionName === definition.name) UNITS_REGISTRY.delete(symbol);
     }
   }
-  
-  DIMENSIONS_REGISTRY.set(definition.name, definition as unknown as DimensionDefinition);
-  
+
+  DIMENSIONS_REGISTRY.set(
+    definition.name,
+    definition as unknown as DimensionDefinition,
+  );
+
   for (const [unitSymbol, unitSpec] of Object.entries(definition.units)) {
     UNITS_REGISTRY.set(unitSymbol, {
       symbol: unitSymbol,
@@ -37,16 +80,7 @@ export function defineDimension<const Name extends string, const Units extends U
     });
   }
 
-  const quantity = (value: number, unit: keyof Units & string) =>
-    new Q(value, unit) as Q<keyof Units & string, { [K in Name]: 1 }, keyof Units & string>;
-
-  return {
-    name: definition.name,
-    baseUnitSymbol: definition.baseUnitSymbol,
-    units: definition.units,
-    quantity,
-    factory: (unit: keyof Units & string) => (value: number) => quantity(value, unit),
-  };
+  return addQuantityAndFactoryToDefinition(definition);
 }
 
 /**
@@ -60,12 +94,13 @@ export function defineComplexDimension<const Name extends string>(
   options: DefineDimensionOptions = {},
 ): DefinedDimension<Name, UnitMap> {
   //========= COMPLEX DIMENSION PARSER & INTERPRETER =========
-
   const dimensionExpressionString = expression();
 
   // PARSING
   const parser = new Parser();
-  const dimensionExpression = parser.parseDimensionExpression(dimensionExpressionString);
+  const dimensionExpression = parser.parseDimensionExpression(
+    dimensionExpressionString,
+  );
 
   // COMBINE BASE DIMENSIONS INTO A COMPLEX DIMENSION
   // Use the parsed expression to define all possible combinations of units for the complex dimension
@@ -79,21 +114,40 @@ export function defineComplexDimension<const Name extends string>(
     dimensionsCalculatorContext[dimensionName] = dimensionDef;
   }
 
-  const dimensionCalculator = new DimensionCalculator(dimensionsCalculatorContext);
-  const unitCombinations = dimensionCalculator.calculateUnitCombinations(dimensionExpression);
+  const dimensionCalculator = new DimensionCalculator(
+    dimensionsCalculatorContext,
+  );
+  const unitCombinations = dimensionCalculator.calculateUnitCombinations(
+    dimensionExpression,
+  );
 
-  const units = dimensionCalculator.buildComplexUnitSpec(unitCombinations, dimensionExpression);
+  const units = dimensionCalculator.buildComplexUnitSpec(
+    unitCombinations,
+    dimensionExpression,
+  );
 
   //========= COMPLEX DIMENSION DEFINITION =========
-  const baseUnitSymbol = dimensionCalculator.findFirstUnitSpecWithFactorEqualToOne(Object.entries(units))?.[0] ?? Object.keys(units)[0];
-  const complexDimension = defineDimension({ name, baseUnitSymbol, units }, options);
+  const baseUnitSymbol =
+    dimensionCalculator.findFirstUnitSpecWithFactorEqualToOne(
+      Object.entries(units),
+    )?.[0] ?? Object.keys(units)[0];
+  const complexDimension = defineDimension(
+    { name, baseUnitSymbol, units },
+    options,
+  );
+
+  validateDefinition(complexDimension, options.overwrite === true);
 
   // Remember how this dimension was derived so that equivalence resolution
   // (see `defineEquivalence`) can transparently unify it with other dimensions
   // that reduce to the same canonical signature, even transitively.
-  const { signature, coefficient } = dimensionExpressionToSignature(dimensionExpression);
+  const { signature, coefficient } = dimensionExpressionToSignature(
+    dimensionExpression,
+  );
   if (coefficient !== 1) {
-    throw new Error(`Complex dimension "${name}" expression must not include a numeric coefficient (found ${coefficient}).`);
+    throw new Error(
+      `Complex dimension "${name}" expression must not include a numeric coefficient (found ${coefficient}).`,
+    );
   }
   registerEquivalence(name, signature);
 
@@ -123,16 +177,22 @@ export function defineEquivalence<const Name extends string>(
 
   const dimensionExpressionString = expression();
   const parser = new Parser();
-  const dimensionExpression = parser.parseDimensionExpression(dimensionExpressionString);
+  const dimensionExpression = parser.parseDimensionExpression(
+    dimensionExpressionString,
+  );
 
   const dimensionsInExpression = extractIdentifiers(dimensionExpression);
   for (const dimensionName of dimensionsInExpression) {
     getDimensionDefinition(dimensionName); // Throws if not defined.
   }
 
-  const { signature, coefficient } = dimensionExpressionToSignature(dimensionExpression);
+  const { signature, coefficient } = dimensionExpressionToSignature(
+    dimensionExpression,
+  );
   if (coefficient !== 1) {
-    throw new Error(`Equivalence expression for "${name}" must not include a numeric coefficient (found ${coefficient}).`);
+    throw new Error(
+      `Equivalence expression for "${name}" must not include a numeric coefficient (found ${coefficient}).`,
+    );
   }
 
   // If `name` already has a registered equivalence, verify the new expression
@@ -155,30 +215,62 @@ export function defineEquivalence<const Name extends string>(
   canonicalizeSignature({ [name]: 1 });
 }
 
-function validateDefinition(definition: DimensionDefinition, overwrite: boolean): void {
-  if (!definition.name.trim()) throw new Error("Dimension name must be non-empty.");
-
-  if (DIMENSIONS_REGISTRY.has(definition.name) && !overwrite) {
-    throw new Error(`Dimension name "${definition.name}" is already defined and overwrite is not allowed.`);
+function validateDefinition(
+  definition: DimensionDefinition,
+  overwrite: boolean,
+): void {
+  if (!definition.name.trim()) {
+    throw new Error("Dimension name must be non-empty.");
   }
 
-  if (!definition.baseUnitSymbol.trim()) throw new Error(`Base unit symbol for dimension "${definition.name}" must be non-empty.`);
+  if (DIMENSIONS_REGISTRY.has(definition.name) && !overwrite) {
+    throw new Error(
+      `Dimension name "${definition.name}" is already defined and overwrite is not allowed.`,
+    );
+  }
+
+  if (!definition.baseUnitSymbol.trim()) {
+    throw new Error(
+      `Base unit symbol for dimension "${definition.name}" must be non-empty.`,
+    );
+  }
   if (!(definition.baseUnitSymbol in definition.units)) {
-    throw new Error(`Base unit "${definition.baseUnitSymbol}" is not declared for dimension "${definition.name}".`);
+    throw new Error(
+      `Base unit "${definition.baseUnitSymbol}" is not declared for dimension "${definition.name}".`,
+    );
   }
   if (DIMENSIONS_REGISTRY.has(definition.name) && !overwrite) {
     throw new Error(`Dimension "${definition.name}" is already defined.`);
   }
   for (const [symbol, unit] of Object.entries(definition.units)) {
-    if (!symbol.trim()) throw new Error(`Unit symbol for dimension "${definition.name}" must be non-empty.`);
-    if (!Number.isFinite(unit.factor)) throw new Error(`Unit "${symbol}" has a non-finite conversion factor.`);
-    if (unit.factor <= 0) throw new Error(`Unit "${symbol}" must have a positive conversion factor.`);
-    if (symbol === definition.baseUnitSymbol && (unit.factor !== 1 || (unit.offset ?? 0) !== 0)) {
-      throw new Error(`Base unit "${symbol}" for dimension "${definition.name}" must have a conversion factor of 1 and offset of 0.`);
+    if (!symbol.trim()) {
+      throw new Error(
+        `Unit symbol for dimension "${definition.name}" must be non-empty.`,
+      );
+    }
+    if (!Number.isFinite(unit.factor)) {
+      throw new Error(`Unit "${symbol}" has a non-finite conversion factor.`);
+    }
+    if (unit.factor <= 0) {
+      throw new Error(
+        `Unit "${symbol}" must have a positive conversion factor.`,
+      );
+    }
+    if (
+      symbol === definition.baseUnitSymbol &&
+      (unit.factor !== 1 || (unit.offset ?? 0) !== 0)
+    ) {
+      throw new Error(
+        `Base unit "${symbol}" for dimension "${definition.name}" must have a conversion factor of 1 and offset of 0.`,
+      );
     }
     const existing = UNITS_REGISTRY.get(symbol);
-    if (existing && !(overwrite && existing.dimensionName === definition.name)) {
-      throw new Error(`Unit symbol "${symbol}" is already registered to dimension "${existing.dimensionName}".`);
+    if (
+      existing && !(overwrite && existing.dimensionName === definition.name)
+    ) {
+      throw new Error(
+        `Unit symbol "${symbol}" is already registered to dimension "${existing.dimensionName}".`,
+      );
     }
   }
 }
@@ -191,12 +283,13 @@ export function getUnitDefinition(unitSymbol: string): UnitDefinition {
   return unitDef;
 }
 
-export function getDimensionDefinition(dimensionName: string): DimensionDefinition {
+export function getDimensionDefinition(dimensionName: string) {
   const dimDef = DIMENSIONS_REGISTRY.get(dimensionName);
   if (!dimDef) {
     throw new Error(`Dimension "${dimensionName}" is not defined.`);
   }
-  return dimDef;
+
+  return addQuantityAndFactoryToDefinition(dimDef);
 }
 
 export function getAllDimensions(): DimensionDefinition[] {
