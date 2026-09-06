@@ -1,8 +1,9 @@
 import { DimensionCalculator } from "../parser/dimension-calculator.ts";
 import Parser from "../parser/parser.ts";
-import { extractIdentifiers } from "../parser/reducer.ts";
+import { dimensionExpressionToSignature, extractIdentifiers } from "../parser/reducer.ts";
 import { Q } from "../quantity.ts";
 import type { DefinedDimension, DimensionDefinition, UnitDefinition, UnitMap } from "../types/dimension.ts";
+import { canonicalizeSignature, areSignaturesEquivalent, getRawEquivalence, registerEquivalence } from "./equivalence.ts";
 
 const DIMENSIONS_REGISTRY: Map<string, DimensionDefinition> = new Map();
 const UNITS_REGISTRY: Map<string, UnitDefinition> = new Map();
@@ -87,7 +88,71 @@ export function defineComplexDimension<const Name extends string>(
   const baseUnitSymbol = dimensionCalculator.findFirstUnitSpecWithFactorEqualToOne(Object.entries(units))?.[0] ?? Object.keys(units)[0];
   const complexDimension = defineDimension({ name, baseUnitSymbol, units }, options);
 
+  // Remember how this dimension was derived so that equivalence resolution
+  // (see `defineEquivalence`) can transparently unify it with other dimensions
+  // that reduce to the same canonical signature, even transitively.
+  const { signature, coefficient } = dimensionExpressionToSignature(dimensionExpression);
+  if (coefficient !== 1) {
+    throw new Error(`Complex dimension "${name}" expression must not include a numeric coefficient (found ${coefficient}).`);
+  }
+  registerEquivalence(name, signature);
+
   return complexDimension;
+}
+
+/**
+ * Declares that a dimension (typically one previously defined with
+ * `defineDimension`) is equivalent to a combination of other dimensions,
+ * such as `defineEquivalence("Force", () => "Mass * Length / Time ^ 2")`.
+ *
+ * Equivalences are symmetric and transitive: once declared, quantities of
+ * `name` and quantities of the expanded expression (and anything else that
+ * transitively reduces to the same canonical signature) can be freely
+ * combined, compared, and converted between.
+ *
+ * The expression must reduce to a pure combination of dimension identifiers
+ * (no numeric coefficient), and must not create a contradiction with any
+ * equivalence already registered for `name` or the dimensions it references.
+ */
+export function defineEquivalence<const Name extends string>(
+  name: Name,
+  expression: ComplexDimensionExpression,
+): void {
+  // Ensures `name` itself is a known dimension before relating it to others.
+  getDimensionDefinition(name);
+
+  const dimensionExpressionString = expression();
+  const parser = new Parser();
+  const dimensionExpression = parser.parseDimensionExpression(dimensionExpressionString);
+
+  const dimensionsInExpression = extractIdentifiers(dimensionExpression);
+  for (const dimensionName of dimensionsInExpression) {
+    getDimensionDefinition(dimensionName); // Throws if not defined.
+  }
+
+  const { signature, coefficient } = dimensionExpressionToSignature(dimensionExpression);
+  if (coefficient !== 1) {
+    throw new Error(`Equivalence expression for "${name}" must not include a numeric coefficient (found ${coefficient}).`);
+  }
+
+  // If `name` already has a registered equivalence, verify the new expression
+  // resolves to the exact same canonical dimension before accepting it -
+  // this catches contradictory/mismatched-scale declarations.
+  const existingRawEquivalence = getRawEquivalence(name);
+  if (existingRawEquivalence !== undefined) {
+    const existingCanonical = canonicalizeSignature(existingRawEquivalence);
+    const newCanonical = canonicalizeSignature(signature);
+    if (!areSignaturesEquivalent(existingCanonical, newCanonical)) {
+      throw new Error(
+        `Equivalence for "${name}" ("${dimensionExpressionString}") is inconsistent with its existing equivalence.`,
+      );
+    }
+  }
+
+  registerEquivalence(name, signature);
+
+  // Re-validate that no circular/contradictory equivalence was introduced.
+  canonicalizeSignature({ [name]: 1 });
 }
 
 function validateDefinition(definition: DimensionDefinition, overwrite: boolean): void {

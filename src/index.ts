@@ -3,6 +3,7 @@ export type { Quantity } from "./quantity.ts";
 export {
 	defineComplexDimension,
 	defineDimension,
+	defineEquivalence,
 	getAllDimensions,
 	getDimensionDefinition,
 	getUnitDefinition,

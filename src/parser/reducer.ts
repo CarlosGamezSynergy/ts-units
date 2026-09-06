@@ -145,6 +145,33 @@ export function reduceDimensionExpression(expression: DimensionExpression): Dime
 	};
 }
 
+/**
+ * Reduces a dimension expression to a flat map of identifier -> exponent
+ * (e.g. `Mass * Length / Time ^ 2` becomes `{ Mass: 1, Length: 1, Time: -2 }`).
+ * Also returns the numeric coefficient accumulated from any numeric literals,
+ * so callers can validate that an expression evaluates to a pure combination
+ * of identifiers (coefficient === 1).
+ */
+export function dimensionExpressionToSignature(
+	expression: DimensionExpression
+): { signature: Record<string, number>; coefficient: number } {
+	const reduction: Reduction = {
+		coefficient: 1,
+		exponents: new Map()
+	};
+
+	for (const statement of expression.body) {
+		collect(statement as Expression, 1, reduction);
+	}
+
+	const signature: Record<string, number> = {};
+	for (const [symbol, exponent] of reduction.exponents) {
+		if (exponent !== 0) signature[symbol] = exponent;
+	}
+
+	return { signature, coefficient: reduction.coefficient };
+}
+
 export function extractIdentifiers(expression: DimensionExpression): Set<string> {
 	const identifiers = new Set<string>();
 

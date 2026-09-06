@@ -5,7 +5,7 @@
  * Includes units like meters per second (m/s) for velocity, meters per second squared (m/s²) for acceleration, and newtons (N) for force.
  */
 
-import { defineComplexDimension, defineDimension } from "../utils/registry.ts";
+import { defineComplexDimension, defineDimension, defineEquivalence } from "../utils/registry.ts";
 
 // ==== GEOMETRY ====
 
@@ -27,9 +27,12 @@ export const ElectricPotential = defineDimension({
     }
 });
 
+
 export const V = ElectricPotential.factory("V")
 export const mV = ElectricPotential.factory("mV")
 export const kV = ElectricPotential.factory("kV")
+
+defineEquivalence("ElectricPotential", () => "(Mass * Length ^ 2) / (Time ^ 3 * ElectricCurrent)");
 
 export const RealPower = defineDimension({
     name: "RealPower",

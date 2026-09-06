@@ -1,6 +1,7 @@
 // @ts-ignore: used for registry side effects
 import type { DimensionSignature, CombineDimensionSignatures, DivideDimensionSignatures, ScaleDimensionSignature } from "./types/signature.ts";
 import { getUnitDefinition, getDimensionDefinition } from "./utils/registry.ts";
+import { areSignaturesEquivalent } from "./utils/equivalence.ts";
 
 // Using a unique symbol for branding to achieve nominal typing
 const dimensionBrand = Symbol("dimensionBrand");
@@ -160,18 +161,12 @@ export class Q<
       .join(".");
   }
 
-  /** Checks if two dimension signatures are equal. */
+  /** Checks if two dimension signatures are equal, resolving any declared equivalences (e.g. Force <-> Mass.Length/Time^2). */
   static areDimensionSignaturesEqual(
     sig1: DimensionSignature,
     sig2: DimensionSignature
   ): boolean {
-    const keys1 = Object.keys(sig1);
-    const keys2 = Object.keys(sig2);
-    if (keys1.length !== keys2.length) return false;
-    for (const key of keys1) {
-      if (sig1[key] !== sig2[key]) return false;
-    }
-    return true;
+    return areSignaturesEquivalent(sig1, sig2);
   }
 
    /** Combines two dimension signatures (addition of exponents). */
